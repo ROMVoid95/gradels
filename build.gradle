@@ -45,12 +45,15 @@ tasks.withType(Javadoc) {
 }
 
 gradlePlugin {
+    website = 'https://github.com/ROMVoid95/gradels'
+    vcsUrl = 'https://github.com/ROMVoid95/gradels'
     plugins {
         mvn {
             id = "io.github.romvoid95.mvn"
             displayName = "romvoid95 Maven Central plugin"
             description = "romvoid95 Maven Central plugin"
             implementationClass = "io.github.romvoid95.MvnCentralPlugin"
+            tags.set(['maven', 'maven-central'])
         }
     }
 }
