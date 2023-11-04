@@ -1,32 +1,54 @@
-package io.github.romvoid95
+package space.tscg.gradle
 
 import javax.inject.Inject
 
+import org.gradle.api.Action
 import org.gradle.api.Project
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 
-import io.github.romvoid95.git.JGit
+import com.vanniktech.maven.publish.MavenPublishBaseExtension
 
-class MvnCentralExtension {
+import space.tscg.gradle.git.JGit
+
+class GradleDefaultsExtension {
+    final Property<Boolean> addMavenPublish
+    final Property<Boolean> printProjectInfo
+
     final Property<String> devName
     final Property<String> devEmail
     final Property<String> githubOwner
     final Property<String> githubRepo
-
+    final Property<String> mavenDescription
     final Property<String> keyId
     final Property<String> secretKeyRingFile
     final Property<String> password
 
+    final Property<Action<MavenPublishBaseExtension>> mavenPublishing;
+
+    final Provider<Map<String, String>> gitInfo
+
     @Inject
-    public MvnCentralExtension(Project target, JGit jgit) {
+    public GradleDefaultsExtension(Project target) {
+        def jgit = JGit.open(target)
         def factory = target.objects
+        this.addMavenPublish = factory.property(Boolean.class).convention(true)
+        this.printProjectInfo = factory.property(Boolean.class).convention(true)
         this.devName = factory.property(String.class)
         this.devEmail = factory.property(String.class)
         this.githubOwner = factory.property(String.class).convention(jgit.getRepositoryOwner())
         this.githubRepo = factory.property(String.class).convention(jgit.getRepositoryName())
+        this.mavenDescription = factory.property(String.class)
         this.keyId = factory.property(String.class)
         this.secretKeyRingFile = factory.property(String.class)
         this.password = factory.property(String.class)
+        this.mavenPublishing = factory.property(Action.class)
+
+        this.gitInfo = factory.mapProperty(String.class, String.class).convention(GitInfo.gitInfo(jgit))
+    }
+
+    void mavenPublishing(Action<MavenPublishBaseExtension> action) {
+        this.mavenPublishing.set(action)
     }
 
     void devName(String devName) {
@@ -57,7 +79,28 @@ class MvnCentralExtension {
         this.password.set(password)
     }
 
+    void printProjectInfo(boolean printInfo) {
+        this.addMavenPublish.set(printInfo)
+    }
+
+    void disableMavenPublish() {
+        this.addMavenPublish.set(false)
+    }
+
+    boolean doMavenPublishing() {
+        this.addMavenPublish.get().equals(true)
+    }
+
+    boolean isGitInfoSet()
+    {
+        !this.githubOwner.get().equals("unspecified") || !this.githubRepo.get().equals("unspecified")
+    }
+
     boolean isDevInfoSet() {
         this.devEmail.present && this.devName.present
+    }
+
+    Map<String, String> gitInfo() {
+        return gitInfo.get()
     }
 }

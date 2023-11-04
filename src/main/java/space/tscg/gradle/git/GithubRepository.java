@@ -1,4 +1,4 @@
-package io.github.romvoid95.git;
+package space.tscg.gradle.git;
 
 import java.util.List;
 

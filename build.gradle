@@ -1,16 +1,14 @@
-import org.gradle.api.provider.ProviderFactory
-
 plugins {
     id 'groovy'
     id 'java-gradle-plugin'
+    id 'io.freefair.lombok' version '8.+'
     id 'maven-publish'
     id 'eclipse'
-    id "com.gradle.plugin-publish" version "1.2.0"
 }
 
-group = "io.github.romvoid95"
+group = "space.tscg.gradle"
 description = "A set of Gradle plugins"
-version = "0.1.0"
+version = "1.1.10"
 
 java {
     toolchain {
@@ -20,21 +18,22 @@ java {
 }
 
 repositories {
-    mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
     compileOnly gradleApi()
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.15.2'
-    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
-    implementation 'org.eclipse.jgit:org.eclipse.jgit:6.6.0.202305301015-r'
-    implementation 'org.bouncycastle:bcpg-jdk15on:1.70'
-    implementation 'com.google.guava:guava:32.1.1-jre'
     
-    compileOnly 'org.projectlombok:lombok:1.18.28'
-    annotationProcessor 'org.projectlombok:lombok:1.18.28'
-    testCompileOnly 'org.projectlombok:lombok:1.18.28'
-    testAnnotationProcessor 'org.projectlombok:lombok:1.18.28'
+    api group: 'com.vanniktech.maven.publish',  name: 'com.vanniktech.maven.publish.gradle.plugin', version: 'latest.release'
+    api group: 'com.vanniktech',                name: 'gradle-maven-publish-plugin',                version: 'latest.release'
+    
+    compileOnlyApi group: 'com.fasterxml.jackson.core', name: 'jackson-databind',   version: 'latest.release'
+    compileOnlyApi group: 'com.squareup.okhttp3',       name: 'okhttp',             version: 'latest.release'
+    compileOnlyApi group: 'org.eclipse.jgit',           name: 'org.eclipse.jgit',   version: '6.6.0.202305301015-r'
+    compileOnlyApi group: 'org.bouncycastle',           name: 'bcpg-jdk15on',       version: '1.70'
+    compileOnlyApi group: 'com.google.guava',           name: 'guava',              version: 'latest.release'
+    compileOnlyApi group: 'org.panda-lang',             name: 'expressible',        version: '1.3.5'
+    compileOnlyApi group: 'org.jetbrains',              name: 'annotations',        version: 'latest.release'
 }
 
 tasks.withType(Javadoc) {
@@ -45,15 +44,32 @@ tasks.withType(Javadoc) {
 }
 
 gradlePlugin {
-    website = 'https://github.com/ROMVoid95/gradels'
-    vcsUrl = 'https://github.com/ROMVoid95/gradels'
     plugins {
-        mvn {
-            id = "io.github.romvoid95.mvn"
-            displayName = "romvoid95 Maven Central plugin"
-            description = "romvoid95 Maven Central plugin"
-            implementationClass = "io.github.romvoid95.MvnCentralPlugin"
-            tags.set(['maven', 'maven-central'])
+        defaults {
+            id = "tscg.defaults"
+            displayName = "gradle defaults plugin"
+            description = "gradle defaults plugin"
+            implementationClass = "space.tscg.gradle.GradleDefaultsPlugin"
+        }
+    }
+}
+
+publishing {
+    repositories {
+        maven {
+            name 'EzGradle'
+            if(project.hasProperty('EZG_USER') && project.hasProperty('EZG_PASSWORD')) {
+                url 'https://ezgradle.site/plugins'
+                authentication {
+                    basic(BasicAuthentication)
+                }
+                credentials {
+                    username = project.property('EZG_USER')
+                    password = project.property('EZG_PASSWORD')
+                }
+            } else {
+                url 'file://' + project.rootProject.file('repo').getAbsolutePath()
+            }
         }
     }
 }
@@ -62,6 +78,12 @@ import org.gradle.plugins.ide.eclipse.model.AbstractLibrary
 import org.gradle.plugins.ide.eclipse.model.internal.FileReferenceFactory
 
 def srcFolder = file("C:\\gradle\\gradle-${project.gradle.gradleVersion}\\src")
+
+tasks.named('eclipse') {
+	doLast {
+		mkdir 'build/pluginUnderTestMetadata'
+	}
+}
 
 eclipse {
     classpath {
