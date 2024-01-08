@@ -8,13 +8,14 @@ plugins {
 
 group = "space.tscg.gradle"
 description = "A set of Gradle plugins"
-version = "1.1.10"
+version = "2.2.0"
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(17)
         vendor = JvmVendorSpec.ORACLE
     }
+    withSourcesJar()
 }
 
 repositories {
@@ -23,13 +24,15 @@ repositories {
 
 dependencies {
     compileOnly gradleApi()
+        
+    api group: 'com.vanniktech.maven.publish',      name: 'com.vanniktech.maven.publish.gradle.plugin',     version: 'latest.release'
+    api group: 'com.vanniktech',                    name: 'gradle-maven-publish-plugin',                    version: 'latest.release'
+    api group: 'org.eclipse.jgit',                  name: 'org.eclipse.jgit',                               version: '6.6.0.202305301015-r'
+    api group: 'com.fasterxml.jackson.core',        name: 'jackson-databind',                               version: 'latest.release'
+    api group: 'com.squareup.okhttp3',              name: 'okhttp',                                         version: 'latest.release'
+    api group: 'org.sonatype.gradle.plugins.scan',  name: 'org.sonatype.gradle.plugins.scan.gradle.plugin', version: 'latest.release'
+    api group: 'org.sonatype.gradle.plugins',       name: 'scan-gradle-plugin',                             version: 'latest.release'
     
-    api group: 'com.vanniktech.maven.publish',  name: 'com.vanniktech.maven.publish.gradle.plugin', version: 'latest.release'
-    api group: 'com.vanniktech',                name: 'gradle-maven-publish-plugin',                version: 'latest.release'
-    
-    compileOnlyApi group: 'com.fasterxml.jackson.core', name: 'jackson-databind',   version: 'latest.release'
-    compileOnlyApi group: 'com.squareup.okhttp3',       name: 'okhttp',             version: 'latest.release'
-    compileOnlyApi group: 'org.eclipse.jgit',           name: 'org.eclipse.jgit',   version: '6.6.0.202305301015-r'
     compileOnlyApi group: 'org.bouncycastle',           name: 'bcpg-jdk15on',       version: '1.70'
     compileOnlyApi group: 'com.google.guava',           name: 'guava',              version: 'latest.release'
     compileOnlyApi group: 'org.panda-lang',             name: 'expressible',        version: '1.3.5'

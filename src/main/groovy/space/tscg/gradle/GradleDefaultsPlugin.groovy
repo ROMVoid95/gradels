@@ -1,7 +1,8 @@
 package space.tscg.gradle
 
-import org.gradle.api.Action
-import org.gradle.api.Project
+import com.vanniktech.maven.publish.*
+
+import org.gradle.api.*
 import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.provider.Provider
 import org.gradle.api.publish.PublishingExtension
@@ -11,15 +12,11 @@ import org.gradle.api.tasks.javadoc.Javadoc
 import org.gradle.authentication.http.BasicAuthentication
 import org.gradle.external.javadoc.StandardJavadocDocletOptions
 import org.gradle.jvm.toolchain.JavaLanguageVersion
+import org.sonatype.gradle.plugins.scan.ossindex.OssIndexPluginExtension
 
-import com.vanniktech.maven.publish.MavenPublishBaseExtension
-import com.vanniktech.maven.publish.MavenPublishPlugin
-import com.vanniktech.maven.publish.SonatypeHost
+import space.tscg.gradle.git.*
 
-import space.tscg.gradle.git.GithubCaller
-import space.tscg.gradle.git.GithubRepository
-
-class GradleDefaultsPlugin implements PluginProject {
+class GradleDefaultsPlugin implements TSCGPlugin {
 
     Project target
     GradleDefaultsExtension extension
@@ -30,15 +27,6 @@ class GradleDefaultsPlugin implements PluginProject {
         this.extension = target.extensions.create("tscg", GradleDefaultsExtension.class)
 
         target.pluginManager.apply(ExtendedConfigurationPlugin.class)
-
-        target.tasks.withType(Javadoc) {
-            failOnError false
-            options { StandardJavadocDocletOptions opts ->
-                opts.addStringOption('encoding', 'UTF-8')
-                opts.addStringOption('charSet', 'UTF-8')
-                opts.addBooleanOption("html5", true)
-            }
-        }
 
         target.repositories {
             it.mavenCentral()
@@ -54,9 +42,34 @@ class GradleDefaultsPlugin implements PluginProject {
 
         target.gradle.afterProject {
 
+            if(target.hasProperty('ossIndexUsername') && target.hasProperty('ossIndexPassword'))
+            {
+                target.pluginManager.withPlugin("org.sonatype.gradle.plugins.scan", {
+                    def scan = target.extensions.getByType(OssIndexPluginExtension)
+                    scan.setUsername(target.property('ossIndexUsername').toString())
+                    scan.setPassword(target.property('ossIndexPassword').toString())
+                    scan.setAllConfigurations(true)
+                    scan.setPrintBanner(false)
+                })
+
+                target.pluginManager.apply('org.sonatype.gradle.plugins.scan')
+            } else
+            {
+                target.logger.lifecycle("No OSS Username/Password properties found")
+            }
+
             target.pluginManager.withPlugin('java', {
-                def jvaExt = target.extensions.getByType(JavaPluginExtension.class)
-                jvaExt.toolchain.languageVersion = JavaLanguageVersion.of 17 //this.extension.getJdkVersion().get()
+                def jvaExt = target.extensions.getByType(JavaPluginExtension)
+                jvaExt.toolchain.languageVersion = JavaLanguageVersion.of 17
+
+                target.tasks.withType(Javadoc) {
+                    failOnError false
+                    options { StandardJavadocDocletOptions opts ->
+                        opts.addStringOption('encoding', 'UTF-8')
+                        opts.addStringOption('charSet', 'UTF-8')
+                        opts.addBooleanOption("html5", true)
+                    }
+                }
             })
 
             if(extension.doMavenPublishing()) {
@@ -67,46 +80,59 @@ class GradleDefaultsPlugin implements PluginProject {
                 extension.password.convention("%s.signing.password".formatted(group.get()))
                 extension.secretKeyRingFile.convention("%s.signing.secretKeyRingFile".formatted(group.get()))
 
-                target.pluginManager.withPlugin("com.vanniktech.maven.publish", {
-                    def maven = target.extensions.getByType(MavenPublishBaseExtension.class)
-                    maven.coordinates(
-                            target.group.toString(),
-                            target.name.toLowerCase(),
-                            version.get())
-                    maven.pom(this.pom())
-                    maven.signAllPublications()
-                    maven.publishToMavenCentral(SonatypeHost.S01, true)
-                })
+                if(extension.isOnCentral()) {
+                    target.pluginManager.withPlugin("com.vanniktech.maven.publish", {
+                        def maven = target.extensions.getByType(MavenPublishBaseExtension)
+                        maven.coordinates(
+                                target.group.toString(),
+                                target.name.toLowerCase(),
+                                version.get())
+                        maven.pom(this.pom())
+                        maven.signAllPublications()
+                        maven.publishToMavenCentral(SonatypeHost.S01, true)
+                    })
 
-                target.pluginManager.apply(MavenPublishPlugin.class)
-                def mvn = target.extensions.getByType(PublishingExtension.class)
-                mvn.repositories({
-                    if(target.hasProperty('EZG_USER') && target.hasProperty('EZG_PASSWORD')) {
-                        it.maven {
-                            name "EzGradle"
-                            url "https://ezgradle.site/global"
-                            authentication {
-                                basic(BasicAuthentication)
-                            }
-                            credentials {
-                                it.username = target.property("EZG_USER")
-                                it.password = target.property("EZG_PASSWORD")
-                            }
-                        }
-                    } else {
+                    target.pluginManager.apply(MavenPublishPlugin)
+
+                    def mvn = target.extensions.getByType(PublishingExtension)
+                    mvn.repositories({
                         it.maven {
                             name "LocalFile"
                             url "file://" + target.rootProject.file('repo').getAbsolutePath()
                         }
+                    })
+
+                    target.tasks.withType(GenerateModuleMetadata) {
+                        dependsOn 'simpleJavadocJar'
                     }
-                })
+                } else {
+                    target.pluginManager.withPlugin("maven-publish", {
+                        def mvn = target.extensions.getByType(PublishingExtension)
+                        mvn.repositories({
+                            if(target.hasProperty('EZG_USER') && target.hasProperty('EZG_PASSWORD')) {
+                                it.maven {
+                                    name "EzGradle"
+                                    url "https://ezgradle.site/global"
+                                    authentication {
+                                        basic(BasicAuthentication)
+                                    }
+                                    credentials {
+                                        it.username = target.property("EZG_USER")
+                                        it.password = target.property("EZG_PASSWORD")
+                                    }
+                                }
+                            }
+                            it.maven {
+                                name "LocalFile"
+                                url "file://" + target.rootProject.file('repo').getAbsolutePath()
+                            }
+                        })
+                    })
+                    target.pluginManager.apply("maven-publish")
+                }
 
                 if(!System.getenv().CI) {
                     setSigningProperties()
-                }
-
-                target.tasks.withType(GenerateModuleMetadata) {
-                    dependsOn 'simpleJavadocJar'
                 }
             }
         }

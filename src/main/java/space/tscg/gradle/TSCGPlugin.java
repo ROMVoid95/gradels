@@ -28,25 +28,15 @@ import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.util.GradleVersion;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
-public interface PluginProject extends Plugin<Project>
+public interface TSCGPlugin extends Plugin<Project>
 {
     @Override
     default void apply(final @NotNull Project target)
     {
-        GradleRequirement.require(minimumGradleVersion(), this, target.getDisplayName());
+        GradleRequirement.require(GradleVersion.version("8.2"), this, target.getDisplayName());
         this.project(target);
     }
 
     void project(final @NotNull Project target);
-    
-    /**
-     * Return a minimum Gradle version required to use this plugin.
-     *
-     * @return the minimum required version
-     */
-    default @Nullable GradleVersion minimumGradleVersion() {
-      return null;
-    }
 }

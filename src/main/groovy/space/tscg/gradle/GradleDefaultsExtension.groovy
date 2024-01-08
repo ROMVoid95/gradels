@@ -1,13 +1,11 @@
 package space.tscg.gradle
 
-import javax.inject.Inject
-
-import org.gradle.api.Action
-import org.gradle.api.Project
-import org.gradle.api.provider.Property
-import org.gradle.api.provider.Provider
-
 import com.vanniktech.maven.publish.MavenPublishBaseExtension
+
+import org.gradle.api.*
+import org.gradle.api.provider.Property
+
+import javax.inject.Inject
 
 import space.tscg.gradle.git.JGit
 
@@ -17,6 +15,9 @@ class GradleDefaultsExtension {
 
     final Property<String> devName
     final Property<String> devEmail
+
+    final Property<Boolean> onCentral
+
     final Property<String> githubOwner
     final Property<String> githubRepo
     final Property<String> mavenDescription
@@ -24,16 +25,18 @@ class GradleDefaultsExtension {
     final Property<String> secretKeyRingFile
     final Property<String> password
 
-    final Property<Action<MavenPublishBaseExtension>> mavenPublishing;
+    final Map<Object, Object> git
 
-    final Provider<Map<String, String>> gitInfo
+    final Property<Action<MavenPublishBaseExtension>> mavenPublishing;
 
     @Inject
     public GradleDefaultsExtension(Project target) {
         def jgit = JGit.open(target)
         def factory = target.objects
+        this.git = GitInfo.git(jgit)
         this.addMavenPublish = factory.property(Boolean.class).convention(true)
         this.printProjectInfo = factory.property(Boolean.class).convention(true)
+        this.onCentral = factory.property(Boolean.class).convention(false)
         this.devName = factory.property(String.class)
         this.devEmail = factory.property(String.class)
         this.githubOwner = factory.property(String.class).convention(jgit.getRepositoryOwner())
@@ -43,12 +46,18 @@ class GradleDefaultsExtension {
         this.secretKeyRingFile = factory.property(String.class)
         this.password = factory.property(String.class)
         this.mavenPublishing = factory.property(Action.class)
+    }
 
-        this.gitInfo = factory.mapProperty(String.class, String.class).convention(GitInfo.gitInfo(jgit))
+    Map<Object, Object> git() {
+        this.git
     }
 
     void mavenPublishing(Action<MavenPublishBaseExtension> action) {
         this.mavenPublishing.set(action)
+    }
+
+    void onCentral(boolean onCentral) {
+        this.onCentral.set(onCentral)
     }
 
     void devName(String devName) {
@@ -91,16 +100,15 @@ class GradleDefaultsExtension {
         this.addMavenPublish.get().equals(true)
     }
 
-    boolean isGitInfoSet()
-    {
+    boolean isOnCentral() {
+        this.onCentral.get().equals(true)
+    }
+
+    boolean isGitInfoSet() {
         !this.githubOwner.get().equals("unspecified") || !this.githubRepo.get().equals("unspecified")
     }
 
     boolean isDevInfoSet() {
         this.devEmail.present && this.devName.present
-    }
-
-    Map<String, String> gitInfo() {
-        return gitInfo.get()
     }
 }
